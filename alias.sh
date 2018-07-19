@@ -1,6 +1,6 @@
 #!/bin/bash
 
-alias rebase='rebasefunc' #rebase: putting you commit on to of remote repo changes (always rebase before pushing). 
+alias grebase='rebasefunc' #rebase: putting you commit on to of remote repo changes (always rebase before pushing). 
 
 alias gpush='git push -u origin master' #push your commit
 
