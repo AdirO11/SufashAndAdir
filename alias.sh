@@ -2,6 +2,7 @@
 
 alias grebase='rebasefunc' #rebase: putting you commit on to of remote repo changes (always rebase before pushing.). 
 
+
 alias gpush='git push -u origin master' #push your commit
 
 alias gclone='git clone https://github.com/AdirO11/SufashAndAdir.git' #clone our project.
