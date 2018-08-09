@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-
 import urllib3
 import getpass
 import time 
@@ -9,6 +8,12 @@ import datetime
 from bs4 import BeautifulSoup 
 from selenium import webdriver
 from enum import Enum, unique
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import WebDriverException, StaleElementReferenceException, ElementNotVisibleException, InvalidSelectorException
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+import socket
+from selenium.webdriver.remote.command import Command
 
 chrom_driver = r"C:/Users/{user}/Downloads/chromedriver_win32/chromedriver.exe".format(user = getpass.getuser())
 MAX_DAYS_AHEAD = 3
@@ -60,6 +65,7 @@ class WebScrapper(object):
         '''
         Constructor
         '''
+        self.driver = webdriver.Chrome(chrom_driver)
         self.web_dict = dict()
         urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
         self.bwin_games = set({})
@@ -69,16 +75,62 @@ class WebScrapper(object):
         bwin_url = 'https://sports.bwin.com/en/sports#dateFilter={}&sportId=4'.format(bwin_str_date)
         return bwin_url
     
-    def ScrapBet365(self):
-        bet_365 = 'https://www.bet365.com/#/AC/B1/C1/D13/E40/F140/S1/'
+    @staticmethod
+    def get_bet365_url():
+        return 'https://www.bet365.com/#/HO/'
+
+    def scrap_bet365(self, indx = 0):
+        self.driver = webdriver.Chrome(chrom_driver)
+        self.driver.get(WebScrapper.get_bet365_url())
+        self.driver.find_element_by_xpath("//*[contains(text(), 'English')]").click()
+        self.driver.implicitly_wait(5)
+        list(filter(lambda X : X.text.lower() == 'soccer', \
+                             self.driver.find_elements_by_class_name('wn-Classification')))[0].click()
+        self.driver.implicitly_wait(5)
+        WebDriverWait(self.driver, 20).until(
+                            EC.presence_of_element_located((By.CSS_SELECTOR, ".wl-ClassificationHeader_PeriodOption"))).click()
+        self.driver.implicitly_wait(5)
+        closed_states = list(self.driver.find_elements_by_class_name('sm-Market_HeaderClosed'))
+        self.driver.implicitly_wait(5)
+        for country in closed_states:
+            try:
+                country.click()
+                self.driver.implicitly_wait(30)
+            except (WebDriverException, StaleElementReferenceException, InvalidSelectorException) as e:
+                try:
+                    print('{} not clickable.'.format(country.text))
+                except:
+                    print('not clickable. (couldnt find element text)') 
+        sleep(1)
+        ligues = WebDriverWait(self.driver, 300).until(
+                            EC.presence_of_all_elements_located((By.CLASS_NAME, "sm-CouponLink_Label")))
+        print(len(ligues))
+        if len(ligues) <= indx:
+            print('DONE')
+            self.driver.close() 
+            return
+        self.scrap_specific_ligue(ligues[indx])
+        indx += 1
+        self.scrap_bet365(indx)
+    
+    def scrap_specific_ligue(self, ligue):
+        print (ligue.text)
+        try:
+            ligue.click()
+            self.driver.implicitly_wait(5)
+        except ElementNotVisibleException as e:
+            pass
+        while True:
+            try:
+                self.driver.close()
+                self.driver.implicitly_wait(5)
+                self.driver.execute(Command.STATUS)
+            except:
+                break
+            
         
-        
-        
-        
-        
-    def ScrapBwin(self):
+    def scrap_bwin(self):
         now = datetime.datetime.now()
-        driver = webdriver.Chrome(chrom_driver)
         games = []
         
         for day_offset in range(0, MAX_DAYS_AHEAD + 1):
@@ -87,9 +139,9 @@ class WebScrapper(object):
                                                  M = str(date.month).zfill(2),\
                                                  D = str(date.day).zfill(2))
             url = self.get_bwin_url_by_dates(bwin_str_date = bwin_date)            
-            driver.get(url)
+            self.driver.get(url)
             sleep(3)
-            soup = BeautifulSoup(driver.page_source, 'html.parser')
+            soup = BeautifulSoup(self.driver.page_source, 'html.parser')
             games = soup.findAll("div", {"class": "marketboard-event-group__item--event"})
             
             for game in games:
@@ -116,4 +168,4 @@ class WebScrapper(object):
         
 if __name__ == '__main__':
     ws = WebScrapper()
-    ws.ScrapBwin()
+    ws.scrap_bet365()
